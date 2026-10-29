@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Control Motos - Ticket POS & PDF</title>
+
+<!-- Librería para generación de PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root {
+  --primary: #2196f3;
+  --success: #4caf50;
+  --danger: #f44336;
+  --warning: #ff9800;
+  --dark: #111111;
+  --light: #f4f6f8;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  background-color: var(--light);
+  color: #333;
+}
+
+header {
+  background: var(--dark);
+  color: #fff;
+  text-align: center;
+  padding: 15px 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+header h2 { margin: 0 0 5px 0; font-size: 22px; }
+header h3 { margin: 0; font-size: 14px; color: #bbb; font-weight: normal; }
+
+.container {
+  max-width: 1250px;
+  margin: 20px auto;
+  padding: 0 15px;
+}
+
+.card {
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.card h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  border-bottom: 2px solid var(--light);
+  padding-bottom: 8px;
+}
+
+/* Dashboard Metrics */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.metric-card {
+  background: #fff;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  border-left: 5px solid var(--primary);
+}
+
+.metric-card.success { border-left-color: var(--success); }
+.metric-card.danger { border-left-color: var(--danger); }
+.metric-card.warning { border-left-color: var(--warning); }
+
+.metric-card h4 { margin: 0; font-size: 12px; color: #666; text-transform: uppercase; }
+.metric-card p { margin: 8px 0 0 0; font-size: 20px; font-weight: bold; }
+
+/* Form Elements */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+input, select {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
+  width: 100%;
+  font-size: 14px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 7px 11px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 12px;
+  transition: opacity 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+button:hover { opacity: 0.9; }
+
+.btn { background: var(--primary); color: #fff; }
+.btn-s { background: var(--success); color: #fff; }
+.btn-d { background: var(--danger); color: #fff; }
+.btn-w { background: #25d366; color: #fff; }
+.btn-ticket { background: #673ab7; color: #fff; }
+.btn-pdf { background: #e91e63; color: #fff; }
+.btn-neutral { background: #6c757d; color: #fff; }
+
+.table-responsive { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  border: 1px solid #e9ecef;
+  padding: 10px;
+  text-align: left;
+  font-size: 13px;
+}
+
+th { background: var(--dark); color: #fff; }
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fff;
+  margin: 8% auto;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  border-radius: 8px;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+}
+.badge-success { background: var(--success); }
+.badge-danger { background: var(--danger); }
+.badge-warning { background: var(--warning); }
+.badge-secondary { background: #6c757d; }
+
+/* 🖨️ REGLAS CSS PARA IMPRESORA TÉRMICA POS (58mm / 80mm) */
+#ticketArea { display: none; }
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #ticketArea, #ticketArea * {
+    visibility: visible !important;
+  }
+  #ticketArea {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 72mm; /* Ajuste para rollo estándar de 80mm. Cambiar a 48mm si usas impresora de 58mm */
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.2;
+    color: #000;
+    padding: 0;
+    margin: 0;
+  }
+  .ticket-title { text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+  .ticket-line { border-bottom: 1px dashed #000; margin: 6px 0; }
+  .text-center { text-align: center; }
+  .text-bold { font-weight: bold; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>🏍️ Sistema Control de Motos</h2>
+  <h3 id="reloj">🕒 Cargando hora...</h3>
+</header>
+
+<div class="container">
+
+  <!-- DASHBOARD DE MÉTRICAS -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <h4>Total Motos</h4>
+      <p id="m-total">0</p>
+    </div>
+    <div class="metric-card success">
+      <h4>Recaudado Total</h4>
+      <p id="m-recaudado">$0</p>
+    </div>
+    <div class="metric-card danger">
+      <h4>Motos en Mora</h4>
+      <p id="m-mora">0</p>
+    </div>
+    <div class="metric-card warning">
+      <h4>Al Día</h4>
+      <p id="m-aldia">0</p>
+    </div>
+  </div>
+
+  <!-- FORMULARIO DE REGISTRO CON PLAN CONFIGURABLE -->
+  <div class="card">
+    <h3>➕ Registrar Nueva Moto</h3>
+    <div class="form-grid">
+      <input id="conductor" placeholder="Nombre Conductor *">
+      <input id="cedula" placeholder="Cédula / Documento *">
+      <input id="placa" placeholder="Placa Vehículo *">
+      <input id="telefono" placeholder="WhatsApp (Ej: 573001234567)">
+      <input id="mesesPlan" type="number" placeholder="Meses del Plan *" value="18" min="1">
+      <input id="fecha" type="date">
+    </div>
+    <br>
+    <button class="btn" onclick="add()">💾 Guardar Moto</button>
+  </div>
+
+  <!-- BÚSQUEDA Y HERRAMIENTAS DE COPIA DE SEGURIDAD -->
+  <div class="card">
+    <h3>🔍 Búsqueda y Gestión de Datos</h3>
+    <div class="form-grid" style="margin-bottom: 15px;">
+      <input id="buscar" placeholder="Escriba para buscar por conductor, cédula o placa..." onkeyup="render()">
+    </div>
+    <div class="btn-group">
+      <button class="btn-neutral" onclick="exportarDatos()">📥 Exportar Copia JSON</button>
+      <button class="btn-neutral" onclick="document.getElementById('fileImport').click()">📤 Importar Copia</button>
+      <input type="file" id="fileImport" style="display:none" onchange="importarDatos(event)" accept=".json">
+    </div>
+  </div>
+
+  <!-- TABLA PRINCIPAL -->
+  <div class="card">
+    <h3>📋 Listado de Motos Registradas</h3>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Conductor / Cédula</th>
+            <th>Placa / Plan</th>
+            <th>Progreso Pago</th>
+            <th>Saldo Pendiente</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ÁREA INVISIBLE DESTINADA A LA IMPRESIÓN TÉRMICA POS -->
+<div id="ticketArea"></div>
+
+<!-- MODAL HISTORIAL -->
+<div class="modal" id="modalHistorial" onclick="closeModal('modalHistorial')">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h3>📋 Historial de Pagos</h3>
+    <div id="histContent" style="max-height:300px; overflow-y:auto; padding:10px; border:1px solid #ddd; background:#fafafa; border-radius:6px;"></div>
+    <br>
+    <button class="btn-d" onclick="closeModal('modalHistorial')">Cerrar</button>
+  </div>
+</div>
+
+<!-- MODAL ABONO -->
+<div class="modal" id="modalAbono" onclick="closeModal('modalAbono')">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h3>💰 Registrar Abono</h3>
+    <p id="abonoMotoInfo" style="font-weight:bold;"></p>
+    <input type="hidden" id="abonoMotoId">
+    <label>Valor a abonar ($):</label>
+    <input type="number" id="abonoMonto" placeholder="Ej: 70000" min="1">
+    <br><br>
+    <div class="btn-group">
+      <button class="btn-s" onclick="confirmarAbono()">Confirmar Abono</button>
+      <button class="btn-d" onclick="closeModal('modalAbono')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CUOTA_DIARIA = 35000;
+let motos = JSON.parse(localStorage.getItem("motos")) || [];
+
+/* RELOJ */
+function reloj12h() {
+  let d = new Date();
+  let h = d.getHours() % 12 || 12;
+  let m = d.getMinutes() < 10 ? "0" + d.getMinutes() : d.getMinutes();
+  let s = d.getSeconds() < 10 ? "0" + d.getSeconds() : d.getSeconds();
+  let ampm = d.getHours() >= 12 ? "PM" : "AM";
+  document.getElementById("reloj").innerText = `🕒 ${h}:${m}:${s} ${ampm}`;
+}
+setInterval(reloj12h, 1000);
+reloj12h();
+
+function save() { localStorage.setItem("motos", JSON.stringify(motos)); }
+function format(n) { return Number(n).toLocaleString("es-CO"); }
+
+/* AGREGAR NUEVA MOTO */
+function add() {
+  const conductor = document.getElementById("conductor").value.trim();
+  const cedula = document.getElementById("cedula").value.trim();
+  const placa = document.getElementById("placa").value.trim().toUpperCase();
+  const telefono = document.getElementById("telefono").value.trim();
+  const meses = Number(document.getElementById("mesesPlan").value) || 18;
+  const fecha = document.getElementById("fecha").value;
+
+  if (!conductor || !cedula || !placa) {
+    alert("⚠️ Por favor completa los campos obligatorios: Conductor, Cédula y Placa.");
+    return;
+  }
+
+  if (motos.some(m => m.placa === placa)) {
+    alert("⚠️ Ya existe una moto registrada con esa placa.");
+    return;
+  }
+
+  motos.push({
+    id: Date.now(),
+    conductor,
+    cedula,
+    placa,
+    telefono,
+    mesesPlan: meses,
+    diasTotales: meses * 30,
+    fecha: fecha || new Date().toISOString().split('T')[0],
+    pagado: 0,
+    pagos: []
+  });
+
+  document.getElementById("conductor").value = "";
+  document.getElementById("cedula").value = "";
+  document.getElementById("placa").value = "";
+  document.getElementById("telefono").value = "";
+  document.getElementById("mesesPlan").value = "18";
+  document.getElementById("fecha").value = "";
+
+  save();
+  render();
+}
+
+/* ACCIONES DE COBRO */
+function pay(id) {
+  let m = motos.find(x => x.id == id);
+  m.pagado += CUOTA_DIARIA;
+  m.pagos.push({ fecha: new Date().toLocaleString("es-CO"), estado: "🟢 PAGÓ CUOTA", monto: CUOTA_DIARIA });
+  save();
+  render();
+}
+
+function noPay(id) {
+  let m = motos.find(x => x.id == id);
+  m.pagos.push({ fecha: new Date().toLocaleString("es-CO"), estado: "🔴 NO PAGÓ", monto: 0 });
+  save();
+  render();
+}
+
+function openAbono(id) {
+  let m = motos.find(x => x.id == id);
+  document.getElementById("abonoMotoId").value = id;
+  document.getElementById("abonoMotoInfo").innerText = `${m.conductor} - Placa: ${m.placa}`;
+  document.getElementById("abonoMonto").value = "";
+  document.getElementById("modalAbono").style.display = "block";
+}
+
+function confirmarAbono() {
+  let id = document.getElementById("abonoMotoId").value;
+  let valor = Number(document.getElementById("abonoMonto").value);
+  if (!valor || valor <= 0) return;
+
+  let m = motos.find(x => x.id == id);
+  m.pagado += valor;
+  let diasCubiertos = Math.floor(valor / CUOTA_DIARIA);
+
+  for (let i = 0; i < m.pagos.length && diasCubiertos > 0; i++) {
+    if (m.pagos[i].estado === "🔴 NO PAGÓ") {
+      m.pagos.splice(i, 1);
+      i--;
+      diasCubiertos--;
+    }
+  }
+
+  m.pagos.push({ fecha: new Date().toLocaleString("es-CO"), estado: `💰 ABONO ($${format(valor)})`, monto: valor });
+  save();
+  closeModal('modalAbono');
+  render();
+}
+
+function removeMoto(id) {
+  if (!confirm("❓ ¿Eliminar registro permanentemente?")) return;
+  motos = motos.filter(m => m.id !== id);
+  save();
+  render();
+}
+
+function contar(m) {
+  let p = 0, n = 0;
+  m.pagos.forEach(x => {
+    if (x.estado.includes("PAGÓ") || x.estado.includes("ABONO")) p++;
+    if (x.estado === "🔴 NO PAGÓ") n++;
+  });
+  return { p, n };
+}
+
+function estadoMoto(m) {
+  let diasTotales = m.diasTotales || (m.mesesPlan ? m.mesesPlan * 30 : 540);
+  let diasPagados = Math.floor(m.pagado / CUOTA_DIARIA);
+  let tieneNoPago = m.pagos.some(p => p.estado === "🔴 NO PAGÓ");
+
+  if (diasPagados >= diasTotales) return { text: "🏁 FINALIZADO", class: "badge-secondary" };
+  if (diasPagados > diasTotales) return { text: "⚠ EN PLAZO EXTRA", class: "badge-warning" };
+  if (tieneNoPago) return { text: "🔴 EN MORA", class: "badge-danger" };
+  if (m.pagado > 0) return { text: "🟢 AL DÍA", class: "badge-success" };
+
+  return { text: "⚪ SIN MOVIMIENTO", class: "badge-secondary" };
+}
+
+/* 🖨️ IMPRESIÓN DIRECTA DE TICKET POS EN IMPRESORA TÉRMICA PEQUEÑA */
+function imprimirTicket(id) {
+  let m = motos.find(x => x.id == id);
+  let diasTotales = m.diasTotales || (m.mesesPlan ? m.mesesPlan * 30 : 540);
+  let valorTotalPlan = diasTotales * CUOTA_DIARIA;
+  let saldo = valorTotalPlan - m.pagado;
+  let c = contar(m);
+
+  let ticketHTML = `
+    <div class="ticket-title">CONTROL PLAN MOTOS</div>
+    <div class="text-center">COMPROBANTE DE PAGO</div>
+    <div class="ticket-line"></div>
+    <b>FECHA:</b> ${new Date().toLocaleDateString("es-CO")} ${new Date().toLocaleTimeString("es-CO")}<br>
+    <b>CONDUCTOR:</b> ${m.conductor}<br>
+    <b>CÉDULA:</b> ${m.cedula}<br>
+    <b>PLACA:</b> ${m.placa}<br>
+    <div class="ticket-line"></div>
+    <b>PLAN:</b> ${m.mesesPlan || 18} Meses (${diasTotales} Días)<br>
+    <b>CUOTA DIARIA:</b> $${format(CUOTA_DIARIA)}<br>
+    <div class="ticket-line"></div>
+    <b>TOTAL PAGADO:</b> $${format(m.pagado)}<br>
+    <b>SALDO PENDIENTE:</b> $${format(saldo < 0 ? 0 : saldo)}<br>
+    <b>DÍAS CUBIERTOS:</b> ${Math.floor(m.pagado / CUOTA_DIARIA)} de ${diasTotales}<br>
+    <b>DÍAS EN MORA:</b> ${c.n} ($${format(c.n * CUOTA_DIARIA)})<br>
+    <b>ESTADO:</b> ${estadoMoto(m).text}<br>
+    <div class="ticket-line"></div>
+    <div class="text-center">
+      ¡Gracias por su pago!<br>
+      Conserve este ticket.<br>
+      ==============================
+    </div>
+  `;
+
+  document.getElementById("ticketArea").innerHTML = ticketHTML;
+  window.print();
+}
+
+/* GENERAR PDF FORMATO CARTA */
+function pdf(id) {
+  const { jsPDF } = window.jspdf;
+  let m = motos.find(x => x.id == id);
+  let doc = new jsPDF();
+
+  let diasTotales = m.diasTotales || (m.mesesPlan ? m.mesesPlan * 30 : 540);
+  let valorTotalPlan = diasTotales * CUOTA_DIARIA;
+  let dias = Math.floor(m.pagado / CUOTA_DIARIA);
+  let rest = diasTotales - dias;
+  let c = contar(m);
+  let saldo = valorTotalPlan - m.pagado;
+
+  doc.setFillColor(17, 17, 17);
+  doc.rect(0, 0, 220, 30, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.text("CONTROL PLAN DE MOTOS - INFORME", 15, 20);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.text(`Conductor: ${m.conductor}`, 15, 45);
+  doc.text(`Cédula: ${m.cedula}`, 15, 53);
+  doc.text(`Placa: ${m.placa}`, 15, 61);
+  doc.text(`Teléfono: ${m.telefono || 'N/A'}`, 15, 69);
+
+  doc.line(15, 75, 195, 75);
+
+  doc.text(`Plan Contratado: ${m.mesesPlan || 18} Meses (${diasTotales} días)`, 15, 85);
+  doc.text(`Cuota diaria: $${format(CUOTA_DIARIA)}`, 15, 93);
+  doc.text(`Valor Total del Plan: $${format(valorTotalPlan)}`, 15, 101);
+
+  doc.line(15, 107, 195, 107);
+
+  doc.text(`Total Pagado: $${format(m.pagado)}`, 15, 117);
+  doc.text(`Saldo Pendiente: $${format(saldo < 0 ? 0 : saldo)}`, 15, 125);
+  doc.text(`Días Cubiertos: ${dias} de ${diasTotales}`, 15, 133);
+  doc.text(`Días Restantes: ${rest < 0 ? 0 : rest}`, 15, 141);
+
+  doc.text(`Total Registros Pagos: ${c.p}`, 15, 153);
+  doc.text(`Días Debidos (En Mora): ${c.n} ($${format(c.n * CUOTA_DIARIA)})`, 15, 161);
+  doc.text(`Estado Actual: ${estadoMoto(m).text}`, 15, 169);
+
+  doc.setFontSize(9);
+  doc.text(`Reporte generado el: ${new Date().toLocaleDateString("es-CO")} a las ${new Date().toLocaleTimeString("es-CO")}`, 15, 190);
+
+  doc.save(`Estado_Cuenta_${m.placa}.pdf`);
+}
+
+/* MENSAJE DE WHATSAPP */
+function enviarWhatsApp(id) {
+  let m = motos.find(x => x.id == id);
+  if (!m.telefono) {
+    alert("⚠️ Esta moto no tiene un número de teléfono/WhatsApp registrado.");
+    return;
+  }
+
+  let diasTotales = m.diasTotales || (m.mesesPlan ? m.mesesPlan * 30 : 540);
+  let valorTotalPlan = diasTotales * CUOTA_DIARIA;
+  let saldoPendienteTotal = valorTotalPlan - m.pagado;
+  let c = contar(m);
+  let diasEnMora = c.n; 
+  let dineroEnMora = diasEnMora * CUOTA_DIARIA;
+  let est = estadoMoto(m);
+
+  let mensaje = `Hola *${m.conductor}*, le saludamos del Control Plan de Motos.%0A%0A` +
+                `📌 *ESTADO DE CUENTA (Placa: ${m.placa})*%0A` +
+                `• *Plan:* ${m.mesesPlan || 18} Meses (${diasTotales} días)%0A` +
+                `• *Días debidos (en mora):* ${diasEnMora} día(s)%0A` +
+                `• *Dinero en mora:* $${format(dineroEnMora)}%0A` +
+                `----------------------------------------%0A` +
+                `• *Total pagado:* $${format(m.pagado)}%0A` +
+                `• *Saldo pendiente del plan:* $${format(saldoPendienteTotal > 0 ? saldoPendienteTotal : 0)}%0A` +
+                `• *Estado actual:* ${est.text}%0A%0A` +
+                `Agradecemos su gestión para ponerse al día a la brevedad.`;
+
+  window.open(`https://wa.me/${m.telefono}?text=${mensaje}`, '_blank');
+}
+
+/* RESPALDOS */
+function exportarDatos() {
+  if(motos.length === 0) return alert("⚠️ No hay datos para exportar.");
+  let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(motos, null, 2));
+  let downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `motos_backup_${new Date().toISOString().slice(0,10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+function importarDatos(e) {
+  let reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      let imported = JSON.parse(event.target.result);
+      if(Array.isArray(imported)) {
+        motos = imported;
+        save();
+        render();
+        alert("✅ Datos importados con éxito.");
+      }
+    } catch(err) {
+      alert("❌ Error al leer el archivo JSON.");
+    }
+  };
+  if(e.target.files[0]) reader.readAsText(e.target.files[0]);
+}
+
+function showHistorial(id) {
+  let m = motos.find(x => x.id == id);
+  let c = contar(m);
+  let html = `<b>Conductor:</b> ${m.conductor}<br><b>Pagos:</b> ${c.p} | <b>Faltas:</b> ${c.n}<hr>`;
+  html += m.pagos.length ? m.pagos.map(p => `• <b>${p.fecha}</b> - ${p.estado}`).join("<br>") : "<i>Sin historial.</i>";
+  document.getElementById("histContent").innerHTML = html;
+  document.getElementById("modalHistorial").style.display = "block";
+}
+
+function closeModal(id) { document.getElementById(id).style.display = "none"; }
+
+/* RENDERIZADO */
+function render() {
+  const tabla = document.getElementById("tabla");
+  const busqueda = document.getElementById("buscar").value.toLowerCase();
+  let html = "", totalRecaudado = 0, motosEnMora = 0, motosAlDia = 0;
+
+  motos.forEach(m => {
+    totalRecaudado += m.pagado;
+    let est = estadoMoto(m);
+
+    if (est.text.includes("MORA")) motosEnMora++;
+    if (est.text.includes("AL DÍA")) motosAlDia++;
+
+    if (
+      m.conductor.toLowerCase().includes(busqueda) ||
+      m.placa.toLowerCase().includes(busqueda) ||
+      m.cedula.toLowerCase().includes(busqueda)
+    ) {
+      let diasTotales = m.diasTotales || (m.mesesPlan ? m.mesesPlan * 30 : 540);
+      let valorTotalPlan = diasTotales * CUOTA_DIARIA;
+      let diasPagados = Math.floor(m.pagado / CUOTA_DIARIA);
+      let saldo = valorTotalPlan - m.pagado;
+
+      html += `
+      <tr>
+        <td><b>${m.conductor}</b><br><small>C.C: ${m.cedula}</small></td>
+        <td><b>${m.placa}</b><br><small>Plan: ${m.mesesPlan || 18} Meses</small></td>
+        <td>$${format(m.pagado)}<br><small>(${diasPagados}/${diasTotales} Días)</small></td>
+        <td>$${format(saldo < 0 ? 0 : saldo)}</td>
+        <td><span class="badge ${est.class}">${est.text}</span></td>
+        <td>
+          <div class="btn-group">
+            <button class="btn-s" title="Registrar Pago" onclick="pay(${m.id})">Pagó</button>
+            <button class="btn-d" title="Marcar No Pago" onclick="noPay(${m.id})">No Pagó</button>
+            <button class="btn" title="Abono Libre" onclick="openAbono(${m.id})">Abono</button>
+            <button class="btn-ticket" title="Imprimir Ticket Térmico" onclick="imprimirTicket(${m.id})">🖨️ Ticket</button>
+            <button class="btn-pdf" title="Descargar PDF" onclick="pdf(${m.id})">📄 PDF</button>
+            <button class="btn-w" title="Enviar WhatsApp" onclick="enviarWhatsApp(${m.id})">WA</button>
+            <button class="btn-neutral" title="Ver Historial" onclick="showHistorial(${m.id})">Historial</button>
+            <button class="btn-d" title="Eliminar Registro" onclick="removeMoto(${m.id})">🗑️</button>
+          </div>
+        </td>
+      </tr>
+      `;
+    }
+  });
+
+  tabla.innerHTML = html || `<tr><td colspan="6" style="text-align:center;">No se encontraron registros.</td></tr>`;
+  document.getElementById("m-total").innerText = motos.length;
+  document.getElementById("m-recaudado").innerText = "$" + format(totalRecaudado);
+  document.getElementById("m-mora").innerText = motosEnMora;
+  document.getElementById("m-aldia").innerText = motosAlDia;
+}
+
+render();
+</script>
+
+</body>
+</html>
